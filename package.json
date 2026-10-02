@@ -1,0 +1,15 @@
+{
+  "name": "cry-reaction-bot",
+  "version": "1.0.0",
+  "description": "Discord bot that reacts with cry emojis to messages from one specific user",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.22.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
