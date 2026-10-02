@@ -78,6 +78,18 @@
     );
   }
 
+  function updateHiddenNote() {
+    const n = document.querySelectorAll('.fcdf-hidden').length;
+    let note = document.getElementById('fcdf-note');
+    if (!n) return note?.remove();
+    if (!note) {
+      note = document.createElement('div');
+      note.id = 'fcdf-note';
+      document.body.appendChild(note);
+    }
+    note.textContent = `FC Deal Finder: ${n} listing${n === 1 ? '' : 's'} hidden (under ${settings.minMinutes} min left)`;
+  }
+
   let scheduled = false;
   function schedule() {
     if (scheduled) return;
@@ -85,7 +97,8 @@
     requestAnimationFrame(() => {
       scheduled = false;
       const items = [...document.querySelectorAll(S.item)];
-      if (items.length) evaluate(items);
+      if (items.length) evaluate(items).then(updateHiddenNote);
+      else updateHiddenNote();
     });
   }
 
