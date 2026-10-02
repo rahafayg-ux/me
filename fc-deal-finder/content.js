@@ -114,12 +114,15 @@
     ui.hidden = !document.querySelector(S.item);
   }
 
-  // Jump: click Next (one user click, throttled, capped) until a page has a listing with
-  // at least the minimum time left. Never buys, bids or refreshes.
+  // Jump: click Next (one user click, capped) until a page has a listing with at least the
+  // minimum time left. Reads each page the moment it renders; never buys, bids or refreshes.
   const MAX_JUMP_PAGES = 40;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const rand = (lo, hi) => lo + Math.random() * (hi - lo);
-  const pageSig = () => [...document.querySelectorAll(S.item)].slice(0, 4).map((el) => el.textContent).join('|');
+  const cards = () => [...document.querySelectorAll(S.item)].map(readItem);
+  // Stable page fingerprint (names + Buy Now), unlike card text which has a live countdown.
+  const pageSig = () => cards().slice(0, 5).map((c) => `${c.name}${c.bin}`).join('|');
+  const hasLongListing = () => cards().some((c) => c.minutes != null && c.minutes >= settings.minMinutes);
   const nextButton = () =>
     [...document.querySelectorAll('button')].find(
       (b) => b.textContent.trim().toLowerCase() === S.nextText && !b.disabled && !b.classList.contains('disabled')
@@ -135,19 +138,22 @@
     for (; jumping && page < MAX_JUMP_PAGES; page++) {
       jumpStatus = `looking… page ${page + 1}`;
       updateUi();
-      await sleep(rand(900, 1600)); // let results render and be checked
-      if (longListings().length) { jumpStatus = `found on page ${page + 1}`; break; }
+      if (hasLongListing()) { jumpStatus = `found on page ${page + 1}`; break; }
       const next = nextButton();
       if (!next) { jumpStatus = 'no more pages'; break; }
       const before = pageSig();
       next.click();
-      for (let waited = 0; pageSig() === before; waited += 200) {
-        if (waited >= 6000) { jumpStatus = "page didn't change"; jumping = false; break; }
-        await sleep(200);
+      let waited = 0;
+      while (pageSig() === before && waited < 6000) { // poll fast; the app's server is the real limit
+        await sleep(50);
+        waited += 50;
       }
+      if (waited >= 6000) { jumpStatus = "page didn't change"; jumping = false; break; }
+      await sleep(rand(80, 250)); // let the new page finish rendering
     }
-    if (jumping && !longListings().length && page >= MAX_JUMP_PAGES) jumpStatus = `none in ${MAX_JUMP_PAGES} pages`;
+    if (jumping && page >= MAX_JUMP_PAGES) jumpStatus = `none in ${MAX_JUMP_PAGES} pages`;
     jumping = false;
+    schedule(); // hide/badge the page we landed on
     updateUi();
   }
   jumpBtn.addEventListener('click', jump);
