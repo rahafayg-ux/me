@@ -9,6 +9,7 @@ self.FC_SELECTORS = {
   priceLabel: '.label',
   priceValue: '.currency-coins.value',
   binLabelText: 'buy now',
+  timeLabelText: 'time',
   // Card portrait; the numeric id in its URL is used for the FUTBIN lookup.
   portrait: 'img'
 };

@@ -8,6 +8,8 @@ Highlights Transfer Market listings for cards worth **100k+** (by FUTBIN price) 
 3. Click **Load unpacked** and pick the unzipped folder.
 4. Open the FC Web App, go to the Transfer Market, and search. Matching listings light up.
 
+Only listings with **59 minutes or less** left are checked (change or disable this in the popup).
+
 Click the extension icon to change the discount %, minimum price, platform and FUTBIN year.
 
 ## Notes
