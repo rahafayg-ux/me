@@ -18,7 +18,8 @@
     const rows = [...el.querySelectorAll(S.priceRow)];
     const timeRow = rows.find((r) => r.querySelector(S.priceLabel)?.textContent.toLowerCase().includes(S.timeLabelText));
     const labelText = timeRow?.querySelector(S.priceLabel)?.textContent ?? '';
-    const minutes = timeRow ? parseMinutes(timeRow.textContent.replace(labelText, '')) : null;
+    // Fall back to scanning the whole card: the only "N unit" text on it is the time left.
+    const minutes = parseMinutes(timeRow ? timeRow.textContent.replace(labelText, '') : el.textContent);
 
     const bin = rows
       .filter((row) => row.querySelector(S.priceLabel)?.textContent.toLowerCase().includes(S.binLabelText))
@@ -53,13 +54,15 @@
     await Promise.all(
       items.map(async (el) => {
         const p = readItem(el);
-        // Unreadable times pass, so a markup change can't silently hide every deal.
-        const inTime = !settings.minMinutes || p.minutes == null || p.minutes >= settings.minMinutes;
-        const sig = `${p.bin}|${settings.thresholdPct}|${settings.minPrice}|${settings.minMinutes}|${inTime}|${settings.enabled}`;
+        const unreadable = settings.minMinutes && p.minutes == null;
+        const inTime = !settings.minMinutes || (p.minutes != null && p.minutes >= settings.minMinutes);
+        const sig = `${p.bin}|${settings.thresholdPct}|${settings.minPrice}|${settings.minMinutes}|${inTime}|${unreadable}|${settings.enabled}`;
         if (el.dataset.fcdf === sig) return;
         el.dataset.fcdf = sig;
         clear(el);
-        if (!settings.enabled || !p.bin || !inTime) return;
+        if (!settings.enabled || !p.bin) return;
+        if (unreadable) return badge(el, "can't read time left", 'fcdf-muted');
+        if (!inTime) return;
 
         // Only FUTBIN's price counts as market value; never guess from other listings.
         const { price: ref, error } = p.id ? await askFutbin(p.id) : { error: 'no card id' };
