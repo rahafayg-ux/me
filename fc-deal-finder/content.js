@@ -54,6 +54,7 @@
     await Promise.all(
       items.map(async (el) => {
         const p = readItem(el);
+        el.dataset.fcdfMin = p.minutes ?? '';
         const unreadable = settings.minMinutes && p.minutes == null;
         const inTime = !settings.minMinutes || (p.minutes != null && p.minutes >= settings.minMinutes);
         const sig = `${p.bin}|${settings.thresholdPct}|${settings.minPrice}|${settings.minMinutes}|${inTime}|${unreadable}|${settings.hideShort}|${settings.enabled}`;
@@ -79,16 +80,21 @@
   }
 
   function updateHiddenNote() {
-    const n = document.querySelectorAll('.fcdf-hidden').length;
+    const hidden = document.querySelectorAll('.fcdf-hidden').length;
+    const mins = [...document.querySelectorAll(`${S.item}[data-fcdf-min]`)]
+      .map((el) => Number(el.dataset.fcdfMin))
+      .filter((n) => isMinutes(n));
     let note = document.getElementById('fcdf-note');
-    if (!n) return note?.remove();
+    if (!hidden && !mins.length) return note?.remove();
     if (!note) {
       note = document.createElement('div');
       note.id = 'fcdf-note';
       document.body.appendChild(note);
     }
-    note.textContent = `FC Deal Finder: ${n} listing${n === 1 ? '' : 's'} hidden (under ${settings.minMinutes} min left)`;
+    const longest = mins.length ? `${Math.max(...mins)} min` : "couldn't read times";
+    note.textContent = `FC Deal Finder: ${hidden} hidden (under ${settings.minMinutes} min). Longest time left on this page: ${longest}`;
   }
+  const isMinutes = (n) => Number.isFinite(n) && n > 0;
 
   let scheduled = false;
   function schedule() {
