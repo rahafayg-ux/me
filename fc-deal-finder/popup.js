@@ -1,4 +1,4 @@
-const DEFAULTS = { enabled: true, thresholdPct: 5, minPrice: 100000, minMinutes: 59, platform: 'ps', futbinYear: 27 };
+const DEFAULTS = { enabled: true, thresholdPct: 5, minPrice: 100000, minMinutes: 59, hideShort: true, platform: 'ps', futbinYear: 27 };
 chrome.storage.sync.get(DEFAULTS, (s) => {
   for (const [key, def] of Object.entries(DEFAULTS)) {
     const el = document.getElementById(key);

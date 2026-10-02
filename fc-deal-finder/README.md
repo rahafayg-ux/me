@@ -8,7 +8,7 @@ Highlights Transfer Market listings for cards worth **100k+** (by FUTBIN price) 
 3. Click **Load unpacked** and pick the unzipped folder.
 4. Open the FC Web App, go to the Transfer Market, and search. Matching listings light up.
 
-Only listings with **59 minutes or more** left (freshly listed) are checked. Anything with less time left is skipped, and a card whose time can't be read gets a grey badge and is skipped. Change or disable this in the popup.
+Only listings with **59 minutes or more** left (freshly listed) are checked. Anything with less time left is hidden from the list (toggle in the popup) and never price-checked, and a card whose time can't be read gets a grey badge and is skipped. Change or disable this in the popup.
 
 Click the extension icon to change the discount %, minimum price, platform and FUTBIN year.
 

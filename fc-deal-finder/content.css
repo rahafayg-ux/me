@@ -20,3 +20,6 @@
   color: #fff;
   font-weight: 400;
 }
+.fcdf-hidden {
+  display: none !important;
+}

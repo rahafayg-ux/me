@@ -1,6 +1,6 @@
 (() => {
   const S = self.FC_SELECTORS;
-  const DEFAULTS = { enabled: true, thresholdPct: 5, minPrice: 100000, minMinutes: 59 };
+  const DEFAULTS = { enabled: true, thresholdPct: 5, minPrice: 100000, minMinutes: 59, hideShort: true };
   let settings = { ...DEFAULTS };
 
   const num = (text) => Number(String(text ?? '').replace(/[^\d]/g, '')) || 0;
@@ -39,7 +39,7 @@
     );
 
   function clear(el) {
-    el.classList.remove('fcdf-deal');
+    el.classList.remove('fcdf-deal', 'fcdf-hidden');
     el.querySelector('.fcdf-badge')?.remove();
   }
 
@@ -56,13 +56,13 @@
         const p = readItem(el);
         const unreadable = settings.minMinutes && p.minutes == null;
         const inTime = !settings.minMinutes || (p.minutes != null && p.minutes >= settings.minMinutes);
-        const sig = `${p.bin}|${settings.thresholdPct}|${settings.minPrice}|${settings.minMinutes}|${inTime}|${unreadable}|${settings.enabled}`;
+        const sig = `${p.bin}|${settings.thresholdPct}|${settings.minPrice}|${settings.minMinutes}|${inTime}|${unreadable}|${settings.hideShort}|${settings.enabled}`;
         if (el.dataset.fcdf === sig) return;
         el.dataset.fcdf = sig;
         clear(el);
         if (!settings.enabled || !p.bin) return;
         if (unreadable) return badge(el, "can't read time left", 'fcdf-muted');
-        if (!inTime) return;
+        if (!inTime) return settings.hideShort && el.classList.add('fcdf-hidden');
 
         // Only FUTBIN's price counts as market value; never guess from other listings.
         const { price: ref, error } = p.id ? await askFutbin(p.id) : { error: 'no card id' };
