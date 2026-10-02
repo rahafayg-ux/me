@@ -19,7 +19,9 @@
 
   const askFutbin = (id) =>
     new Promise((resolve) =>
-      chrome.runtime.sendMessage({ type: 'futbinPrice', id }, (r) => resolve(chrome.runtime.lastError ? null : r?.price ?? null))
+      chrome.runtime.sendMessage({ type: 'futbinPrice', id }, (r) =>
+        resolve(chrome.runtime.lastError || !r ? { error: 'extension error' } : r)
+      )
     );
 
   function clear(el) {
@@ -27,42 +29,33 @@
     el.querySelector('.fcdf-badge')?.remove();
   }
 
+  function badge(el, text, cls) {
+    const b = document.createElement('div');
+    b.className = `fcdf-badge ${cls}`;
+    b.textContent = text;
+    el.appendChild(b);
+  }
+
   async function evaluate(items) {
-    // Reference fallback: lowest other BIN for the same name+rating within this results page.
-    const group = new Map();
-    const parsed = items.map((el) => ({ el, ...readItem(el) }));
-    for (const p of parsed) {
-      const k = `${p.name}|${p.rating}`;
-      const list = group.get(k) ?? [];
-      list.push(p.bin);
-      group.set(k, list);
-    }
-
     await Promise.all(
-      parsed.map(async (p) => {
+      items.map(async (el) => {
+        const p = readItem(el);
         const sig = `${p.bin}|${settings.thresholdPct}|${settings.minPrice}|${settings.enabled}`;
-        if (p.el.dataset.fcdf === sig) return;
-        p.el.dataset.fcdf = sig;
-        clear(p.el);
-        if (!settings.enabled || p.bin < settings.minPrice) return;
+        if (el.dataset.fcdf === sig) return;
+        el.dataset.fcdf = sig;
+        clear(el);
+        if (!settings.enabled || !p.bin) return;
 
-        let ref = p.id ? await askFutbin(p.id) : null;
-        let source = 'FUTBIN';
-        if (!ref) {
-          const others = (group.get(`${p.name}|${p.rating}`) ?? []).filter((b) => b > p.bin);
-          ref = others.length ? Math.min(...others) : null;
-          source = 'next BIN';
-        }
-        if (!ref) return;
+        // Only FUTBIN's price counts as market value; never guess from other listings.
+        const { price: ref, error } = p.id ? await askFutbin(p.id) : { error: 'no card id' };
+        if (!ref) return badge(el, `no FUTBIN price (${error}, id ${p.id ?? '?'})`, 'fcdf-muted');
+        if (ref < settings.minPrice) return; // card's market value is under the minimum
 
         const discount = ((ref - p.bin) / ref) * 100;
         if (discount < settings.thresholdPct) return;
 
-        p.el.classList.add('fcdf-deal');
-        const badge = document.createElement('div');
-        badge.className = 'fcdf-badge';
-        badge.textContent = `-${discount.toFixed(1)}% vs ${source} ${fmt(ref)}`;
-        p.el.appendChild(badge);
+        el.classList.add('fcdf-deal');
+        badge(el, `-${discount.toFixed(1)}% vs FUTBIN ${fmt(ref)}`, '');
       })
     );
   }

@@ -4,7 +4,7 @@ const DEFAULTS = { platform: 'ps', futbinYear: 27 };
 const TTL_MS = 10 * 60 * 1000;
 const MAX_CONCURRENT = 3;
 
-const cache = new Map(); // key -> { price, at } | { pending: Promise }
+const cache = new Map(); // key -> { result, at } | { pending: Promise }
 let active = 0;
 const queue = [];
 
@@ -29,13 +29,14 @@ function pump() {
   }
 }
 
+// Resolves to { price } or { error } so the page can show why a lookup failed.
 async function fetchPrice(id, { platform, futbinYear }) {
   const res = await fetch(`https://www.futbin.com/${futbinYear}/playerPrices?player=${id}`);
-  if (!res.ok) return null;
+  if (!res.ok) return { error: `HTTP ${res.status}` };
   const json = await res.json();
   const lc = json?.[id]?.prices?.[platform]?.LCPrice;
   const price = Number(String(lc ?? '').replace(/[^\d]/g, ''));
-  return price > 0 ? price : null;
+  return price > 0 ? { price } : { error: 'no price in response' };
 }
 
 async function getPrice(id) {
@@ -43,11 +44,12 @@ async function getPrice(id) {
   const key = `${settings.futbinYear}:${settings.platform}:${id}`;
   const hit = cache.get(key);
   if (hit?.pending) return hit.pending;
-  if (hit && Date.now() - hit.at < TTL_MS) return hit.price;
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.result;
 
-  const pending = run(() => fetchPrice(id, settings)).then((price) => {
-    cache.set(key, { price, at: Date.now() });
-    return price;
+  const pending = run(() => fetchPrice(id, settings)).then((result) => {
+    result ??= { error: 'request failed' };
+    cache.set(key, { result, at: Date.now() });
+    return result;
   });
   cache.set(key, { pending });
   return pending;
@@ -55,6 +57,6 @@ async function getPrice(id) {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type !== 'futbinPrice') return;
-  getPrice(msg.id).then((price) => sendResponse({ price }));
+  getPrice(msg.id).then(sendResponse);
   return true; // async response
 });

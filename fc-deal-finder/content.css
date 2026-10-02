@@ -15,3 +15,8 @@
   pointer-events: none;
   z-index: 10;
 }
+.fcdf-muted {
+  background: #555;
+  color: #fff;
+  font-weight: 400;
+}
