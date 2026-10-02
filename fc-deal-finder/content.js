@@ -1,6 +1,6 @@
 (() => {
   const S = self.FC_SELECTORS;
-  const DEFAULTS = { enabled: true, thresholdPct: 5, minPrice: 100000, maxMinutes: 59 };
+  const DEFAULTS = { enabled: true, thresholdPct: 5, minPrice: 100000, minMinutes: 59 };
   let settings = { ...DEFAULTS };
 
   const num = (text) => Number(String(text ?? '').replace(/[^\d]/g, '')) || 0;
@@ -54,8 +54,8 @@
       items.map(async (el) => {
         const p = readItem(el);
         // Unreadable times pass, so a markup change can't silently hide every deal.
-        const inTime = !settings.maxMinutes || p.minutes == null || p.minutes <= settings.maxMinutes;
-        const sig = `${p.bin}|${settings.thresholdPct}|${settings.minPrice}|${settings.maxMinutes}|${inTime}|${settings.enabled}`;
+        const inTime = !settings.minMinutes || p.minutes == null || p.minutes >= settings.minMinutes;
+        const sig = `${p.bin}|${settings.thresholdPct}|${settings.minPrice}|${settings.minMinutes}|${inTime}|${settings.enabled}`;
         if (el.dataset.fcdf === sig) return;
         el.dataset.fcdf = sig;
         clear(el);
