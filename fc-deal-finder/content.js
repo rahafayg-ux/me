@@ -8,6 +8,7 @@
 
   // "<30 Seconds", "45 Minutes", "1 Hour" -> minutes (rounded up); null if unreadable.
   function parseMinutes(text) {
+    if (/expired/i.test(text)) return 0;
     const m = String(text).match(/(\d+)\s*(second|minute|hour|day)/i);
     if (!m) return null;
     const mult = { second: 1 / 60, minute: 1, hour: 60, day: 1440 }[m[2].toLowerCase()];
