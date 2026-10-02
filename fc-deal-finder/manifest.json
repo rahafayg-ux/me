@@ -2,20 +2,30 @@
   "manifest_version": 3,
   "name": "FC Deal Finder",
   "version": "1.0.0",
-  "description": "Highlights Transfer Market listings of 100k+ that are priced 5%+ below FUTBIN value. You click Buy.",
-  "permissions": ["storage"],
-  "host_permissions": [
-    "https://www.ea.com/ea-sports-fc/ultimate-team/web-app/*",
-    "https://www.futbin.com/*"
+  "description": "Highlights Transfer Market listings of 100k+ priced 5%+ below the price shown on the card. You click Buy.",
+  "permissions": [
+    "storage"
   ],
-  "background": { "service_worker": "background.js" },
+  "host_permissions": [
+    "https://www.ea.com/ea-sports-fc/ultimate-team/web-app/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["https://www.ea.com/ea-sports-fc/ultimate-team/web-app/*"],
-      "js": ["selectors.js", "content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "https://www.ea.com/ea-sports-fc/ultimate-team/web-app/*"
+      ],
+      "js": [
+        "selectors.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_idle"
     }
   ],
-  "action": { "default_popup": "popup.html", "default_title": "FC Deal Finder" }
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "FC Deal Finder"
+  }
 }

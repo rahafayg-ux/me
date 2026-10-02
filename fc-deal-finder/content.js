@@ -27,17 +27,19 @@
       .map((row) => num(row.querySelector(S.priceValue)?.textContent))[0] || 0;
     const name = el.querySelector(S.name)?.textContent.trim() ?? '';
     const rating = el.querySelector(S.rating)?.textContent.trim() ?? '';
-    const src = el.querySelector(S.portrait)?.getAttribute('src') ?? '';
-    const id = src.match(/(\d{4,9})\.(?:png|jpg|webp)/)?.[1] ?? null;
-    return { bin, name, rating, id, minutes };
+    return { bin, name, rating, minutes, ref: readCardPrice(el) };
   }
 
-  const askFutbin = (id) =>
-    new Promise((resolve) =>
-      chrome.runtime.sendMessage({ type: 'futbinPrice', id }, (r) =>
-        resolve(chrome.runtime.lastError || !r ? { error: 'extension error' } : r)
-      )
-    );
+  // The price shown in the green box on the card (added by another price tool), i.e. the
+  // first standalone number on the card that isn't inside a Start/Bid/Buy Now/Time row.
+  function readCardPrice(el) {
+    for (const n of el.querySelectorAll('*')) {
+      if (n.children.length || n.closest(`${S.priceRow}, .fcdf-badge`)) continue;
+      const t = n.textContent.trim();
+      if (/^\d{1,3}(,\d{3})+$|^\d{3,}$/.test(t) && num(t) >= 200) return num(t);
+    }
+    return null;
+  }
 
   function clear(el) {
     el.classList.remove('fcdf-deal', 'fcdf-hidden');
@@ -58,7 +60,7 @@
         el.dataset.fcdfMin = p.minutes ?? '';
         const unreadable = settings.minMinutes && p.minutes == null;
         const inTime = !settings.minMinutes || (p.minutes != null && p.minutes >= settings.minMinutes);
-        const sig = `${p.bin}|${settings.thresholdPct}|${settings.minPrice}|${settings.minMinutes}|${inTime}|${unreadable}|${settings.hideShort}|${settings.enabled}`;
+        const sig = `${p.bin}|${p.ref}|${settings.thresholdPct}|${settings.minPrice}|${settings.minMinutes}|${inTime}|${unreadable}|${settings.hideShort}|${settings.enabled}`;
         if (el.dataset.fcdf === sig) return;
         el.dataset.fcdf = sig;
         clear(el);
@@ -66,36 +68,89 @@
         if (unreadable) return badge(el, "can't read time left", 'fcdf-muted');
         if (!inTime) return settings.hideShort && el.classList.add('fcdf-hidden');
 
-        // Only FUTBIN's price counts as market value; never guess from other listings.
-        const { price: ref, error } = p.id ? await askFutbin(p.id) : { error: 'no card id' };
-        if (!ref) return badge(el, `no FUTBIN price (${error}, id ${p.id ?? '?'})`, 'fcdf-muted');
+        // Only the card's own displayed price counts as market value; never guess from other listings.
+        const ref = p.ref;
+        if (!ref) return badge(el, 'no price found on card', 'fcdf-muted');
         if (ref < settings.minPrice) return; // card's market value is under the minimum
 
         const discount = ((ref - p.bin) / ref) * 100;
         if (discount < settings.thresholdPct) return;
 
         el.classList.add('fcdf-deal');
-        badge(el, `-${discount.toFixed(1)}% vs FUTBIN ${fmt(ref)}`, '');
+        badge(el, `-${discount.toFixed(1)}% vs card price ${fmt(ref)}`, '');
       })
     );
   }
 
-  function updateHiddenNote() {
+  // Corner panel: status note + "Jump to 59 min" button. Created once so updating it never
+  // re-triggers the page scan.
+  const ui = document.createElement('div');
+  ui.id = 'fcdf-ui';
+  const noteEl = document.createElement('div');
+  const jumpBtn = document.createElement('button');
+  ui.append(noteEl, jumpBtn);
+  document.body.appendChild(ui);
+
+  const setText = (el, text) => el.textContent !== text && (el.textContent = text);
+  const isMinutes = (n) => Number.isFinite(n) && n > 0;
+  const longListings = () =>
+    [...document.querySelectorAll(`${S.item}[data-fcdf-min]`)].filter(
+      (el) => el.dataset.fcdfMin !== '' && Number(el.dataset.fcdfMin) >= settings.minMinutes
+    );
+
+  let jumping = false;
+  let jumpStatus = '';
+  function updateUi() {
     const hidden = document.querySelectorAll('.fcdf-hidden').length;
     const mins = [...document.querySelectorAll(`${S.item}[data-fcdf-min]`)]
       .map((el) => Number(el.dataset.fcdfMin))
-      .filter((n) => isMinutes(n));
-    let note = document.getElementById('fcdf-note');
-    if (!hidden && !mins.length) return note?.remove();
-    if (!note) {
-      note = document.createElement('div');
-      note.id = 'fcdf-note';
-      document.body.appendChild(note);
-    }
+      .filter(isMinutes);
     const longest = mins.length ? `${Math.max(...mins)} min` : "couldn't read times";
-    note.textContent = `FC Deal Finder: ${hidden} hidden (under ${settings.minMinutes} min). Longest time left on this page: ${longest}`;
+    setText(
+      noteEl,
+      `${hidden} hidden (under ${settings.minMinutes} min). Longest on this page: ${longest}${jumpStatus ? ` · ${jumpStatus}` : ''}`
+    );
+    setText(jumpBtn, jumping ? 'Stop' : `Jump to ${settings.minMinutes} min`);
+    ui.hidden = !document.querySelector(S.item);
   }
-  const isMinutes = (n) => Number.isFinite(n) && n > 0;
+
+  // Jump: click Next (one user click, throttled, capped) until a page has a listing with
+  // at least the minimum time left. Never buys, bids or refreshes.
+  const MAX_JUMP_PAGES = 40;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const rand = (lo, hi) => lo + Math.random() * (hi - lo);
+  const pageSig = () => [...document.querySelectorAll(S.item)].slice(0, 4).map((el) => el.textContent).join('|');
+  const nextButton = () =>
+    [...document.querySelectorAll('button')].find(
+      (b) => b.textContent.trim().toLowerCase() === S.nextText && !b.disabled && !b.classList.contains('disabled')
+    );
+
+  async function jump() {
+    if (jumping) {
+      jumping = false;
+      return;
+    }
+    jumping = true;
+    let page = 0;
+    for (; jumping && page < MAX_JUMP_PAGES; page++) {
+      jumpStatus = `looking… page ${page + 1}`;
+      updateUi();
+      await sleep(rand(900, 1600)); // let results render and be checked
+      if (longListings().length) { jumpStatus = `found on page ${page + 1}`; break; }
+      const next = nextButton();
+      if (!next) { jumpStatus = 'no more pages'; break; }
+      const before = pageSig();
+      next.click();
+      for (let waited = 0; pageSig() === before; waited += 200) {
+        if (waited >= 6000) { jumpStatus = "page didn't change"; jumping = false; break; }
+        await sleep(200);
+      }
+    }
+    if (jumping && !longListings().length && page >= MAX_JUMP_PAGES) jumpStatus = `none in ${MAX_JUMP_PAGES} pages`;
+    jumping = false;
+    updateUi();
+  }
+  jumpBtn.addEventListener('click', jump);
 
   let scheduled = false;
   function schedule() {
@@ -104,14 +159,16 @@
     requestAnimationFrame(() => {
       scheduled = false;
       const items = [...document.querySelectorAll(S.item)];
-      if (items.length) evaluate(items).then(updateHiddenNote);
-      else updateHiddenNote();
+      (items.length ? evaluate(items) : Promise.resolve()).then(updateUi);
     });
   }
 
+  const own = (n) => (n.nodeType === 1 ? n : n.parentElement)?.closest('#fcdf-ui, .fcdf-badge');
   chrome.storage.sync.get(DEFAULTS, (s) => {
     settings = { ...DEFAULTS, ...s };
-    new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver((muts) => {
+      if (!muts.every((m) => own(m.target))) schedule();
+    }).observe(document.body, { childList: true, subtree: true });
     schedule();
   });
 
