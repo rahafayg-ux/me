@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  body { font: 13px sans-serif; width: 240px; padding: 12px; }
+  label { display: block; margin: 8px 0 2px; }
+  input, select { width: 100%; box-sizing: border-box; }
+</style>
+<label><input type="checkbox" id="enabled"> Enabled</label>
+<label>Min discount (%)<input type="number" id="thresholdPct" min="0" step="0.5"></label>
+<label>Min BIN price<input type="number" id="minPrice" min="0" step="1000"></label>
+<label>Platform
+  <select id="platform"><option value="ps">PlayStation</option><option value="xbox">Xbox</option><option value="pc">PC</option></select>
+</label>
+<label>FUTBIN year<input type="number" id="futbinYear" min="20" max="99"></label>
+<script src="popup.js"></script>
