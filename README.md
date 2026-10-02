@@ -1,6 +1,6 @@
 # Cry Reaction Bot
 
-A Discord bot that reacts with 😢 😭 to every message sent by **one specific user** (you) — and ignores everyone else.
+A Discord bot that reacts with 😭 to every message sent by **one specific user** (you) — and ignores everyone else.
 
 ## Setup
 

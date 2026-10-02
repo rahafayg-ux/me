@@ -8,7 +8,7 @@ if (!DISCORD_TOKEN || !OWNER_ID) {
 }
 
 // Reactions added to each of your messages, in order.
-const CRY_EMOJIS = ['😢', '😭'];
+const CRY_EMOJIS = ['😭'];
 
 const client = new Client({
   intents: [
